@@ -25,6 +25,7 @@ public class NoFearScraper {
         return getSubTablesAsCsv(table);
     }
 
+
     public static Map<String, String> scrapeSubTables(final String theUrl) {
         final Document doc = getWebPage(theUrl);
         final Element table = getTable(doc);
@@ -61,7 +62,6 @@ public class NoFearScraper {
         /* Iterates through first row to find names of columns. Skips the first cell. */
         for (final Element columnName : firstRowData) columnNames.append('\"')
                 .append(columnName.text().replace('\u00a0',' ').trim()).append('\"').append(',');
-//        columnNames.append('\n');
         subTables.put(KEY_COLUMNS_NAMES, columnNames.toString());
 
         StringBuilder tableCsv = new StringBuilder();
