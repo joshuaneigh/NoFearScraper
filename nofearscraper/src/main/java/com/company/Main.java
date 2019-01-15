@@ -1,8 +1,14 @@
 package com.company;
 
+import com.company.model.NoFearScraper;
+
+import java.util.Objects;
+
 public class Main {
 
-    public static void main(String[] args) {
-	// write your code here
+    private static final String URL = "http://www.dia.mil/No-FEAR/";
+
+    public static void main(final String[] theArgs) {
+        System.out.println(Objects.requireNonNull(NoFearScraper.scrape(URL)).toString());
     }
 }
