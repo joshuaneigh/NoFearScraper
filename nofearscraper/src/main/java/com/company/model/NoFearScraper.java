@@ -58,8 +58,7 @@ public final class NoFearScraper {
     public static Map<String, String> scrapeSubTables(final String theUrl) {
         final Document doc = getWebPage(theUrl);
         final Element table = getTable(doc);
-        final Map<String, String> subTables = getSubTables(table);
-        return subTables;
+        return getSubTables(table);
     }
 
     /**
