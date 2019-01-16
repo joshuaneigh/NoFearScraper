@@ -18,10 +18,9 @@ import java.util.*;
  * @version 16 January 2019
  * @author NeighbargerJ
  */
+@SuppressWarnings("SameParameterValue")
 public final class NoFearScraper {
 
-    /** Arbitrary name of the key which corresponds to the CSV format of the data headers */
-    private static final String KEY_COLUMNS_NAMES;
     /** Name of Table V as printed in the Q4 FY 2018 DIA No-FEAR report */
     private static final String TABLE_V_NAME;
     /** Name of Table VII as printed in the Q4 FY 2018 DIA No-FEAR report */
@@ -40,16 +39,20 @@ public final class NoFearScraper {
     private static final char TAB_CHAR;
 
     static {
-        KEY_COLUMNS_NAMES = "COLUMN_NAMES";
-        TABLE_V_NAME = "V. Complaint Investigations";
-        TABLE_VII_NAME = "VII.  Complaints Withdrawn by Complainants:";
-        TABLE_VIII_NAME = "VIII. Findings of Discrimination:";
+        TABLE_V_NAME = "V.";
+        TABLE_VII_NAME = "VII.";
+        TABLE_VIII_NAME = "VIII.";
         TAG_TABLE = "table";
         TAG_TABLE_BODY = "tbody";
         TAG_TABLE_DATA = "td";
         TAG_TABLE_ROW = "tr";
         TAB_CHAR = '\u00a0';
     }
+
+    /**
+     * Private constructor to avoid external instantiation of this class
+     */
+    private NoFearScraper() {}
 
     /**
      * Deprecated starting 15 January 2019. Scrapes the entirety of the HTML table into a single CSV. Does not consider
@@ -61,8 +64,8 @@ public final class NoFearScraper {
     @Deprecated
     public static String scrape(final String theUrl) {
         final Document doc = getWebPage(theUrl);
-        final Element table = getTable(doc);
-        return getSubTablesAsCsv(table);
+        final Element table = getRelevantTable(doc);
+        return processTable(table);
     }
 
     /**
@@ -71,14 +74,17 @@ public final class NoFearScraper {
      * tables 7 and 8. See the archived Q4 FY 2018 report for a visual explanation.
      *
      * @param theUrl the URL from which to read the HTML data
+     * @param theHtmlKey the key which the HTML source data will be put to for use by the Driver
      * @return a Map with the table name as the Key (i.e.: "III. Issues of Complaints Filed:") and the CSV of that
      *      sub-table in a String. The table cells are wrapped in \" characters and are delimited using \' characters.
      *      The first cell is null in each table, followed by the header of each column. The data follows normally.
      */
-    public static Map<String, String> scrapeSubTables(final String theUrl) {
-        final Document doc = getWebPage(theUrl);
-        final Element table = getTable(doc);
-        return getSubTables(table);
+    static Map<String, String> scrapeSubTables(final String theUrl, final String theHtmlKey) {
+        final Document doc = Objects.requireNonNull(getWebPage(theUrl));
+        final Element table = getRelevantTable(doc);
+        final Map<String, String> subTableMap = processSubTables(table);
+        subTableMap.put(theHtmlKey, doc.toString());
+        return subTableMap;
     }
 
     /**
@@ -87,12 +93,12 @@ public final class NoFearScraper {
      * @param theTable the jSoup table of which to parse
      * @return a CSV version of the table as a String
      */
-    private static String getSubTablesAsCsv(final Element theTable) {
+    private static String processTable(final Element theTable) {
         final StringBuilder csv = new StringBuilder();
         final Elements rows = theTable.getElementsByTag(TAG_TABLE_ROW);
         for (final Element row : rows) {
             for (final Element cellData : row.getElementsByTag(TAG_TABLE_DATA)) csv.append('"')
-                    .append(cellData.text().replace(TAB_CHAR,' ').trim()).append('"').append(',');
+                    .append(thisTrim(cellData.text())).append('"').append(',');
             csv.append('\n');
         }
         return csv.toString();
@@ -109,7 +115,7 @@ public final class NoFearScraper {
      *      sub-table in a String. The table cells are wrapped in \" characters and are delimited using \' characters.
      *      The first cell is null in each table, followed by the header of each column. The data follows normally.
      */
-    private static Map<String, String> getSubTables(final Element theTable) {
+    private static Map<String, String> processSubTables(final Element theTable) {
         final Map<String, String> subTables = new HashMap<>();
         final StringBuilder columnNames = new StringBuilder().append("\"\",");
         final Elements rows = theTable.getElementsByTag(TAG_TABLE_ROW);
@@ -119,24 +125,24 @@ public final class NoFearScraper {
         String tableName = firstRowData.remove(0).text();
         for (final Element columnName : firstRowData)
             columnNames.append('\"').append(thisTrim(columnName.text())).append('\"').append(',');
-        subTables.put(KEY_COLUMNS_NAMES, columnNames.toString());
 
         /* The main loop within this method. Processes all other data. */
         StringBuilder tableCsv = new StringBuilder();
         boolean newTableFlag = false;
+        boolean firstLineOfFileFlag = true;
         for (final Element row : rows) {
-            if (isRowEmpty(row)) {
-                newTableFlag = true;
-            } else if (newTableFlag || isHotFixTableV(row)) {
+            if (firstLineOfFileFlag) firstLineOfFileFlag = false;
+            else if (isRowEmpty(row)) newTableFlag = true;
+            else if (newTableFlag || isHotFixTableV(row)) {
                 subTables.put(tableName, tableCsv.toString());
-                tableCsv = new StringBuilder().append(columnNames.toString());
+                tableCsv = new StringBuilder().append(columnNames);
                 tableName = thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text());
                 newTableFlag = false;
-                if (isHotFixTableVII(row) || isHotFixTableVIII(row))
-                    if (isHotFixTableVII(row)) tableCsv.append('\n');
+                if (isHotFixTableVII(row) || isHotFixTableVIII(row)) {
                     tableCsv.append('\n');
                     for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
                         tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
+                }
             } else {
                 for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
                     tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
@@ -179,7 +185,7 @@ public final class NoFearScraper {
      * @return boolean if the row is the start of Table V.
      */
     private static boolean isHotFixTableV(final Element row) {
-        return row.text().startsWith(TABLE_V_NAME);
+        return thisTrim(row.text()).startsWith(TABLE_V_NAME);
     }
 
     /**
@@ -191,7 +197,7 @@ public final class NoFearScraper {
      * @return boolean if the row is the start of Table VII.
      */
     private static boolean isHotFixTableVII(final Element row) {
-        return row.text().startsWith(TABLE_VII_NAME);
+        return thisTrim(row.text()).startsWith(TABLE_VII_NAME);
     }
 
     /**
@@ -203,7 +209,7 @@ public final class NoFearScraper {
      * @return boolean if the row is the start of Table VIII.
      */
     private static boolean isHotFixTableVIII(final Element row) {
-        return row.text().startsWith(TABLE_VIII_NAME);
+        return thisTrim(row.text()).startsWith(TABLE_VIII_NAME);
     }
 
     /**
@@ -212,7 +218,7 @@ public final class NoFearScraper {
      * @param theDoc the jSoup Document from which to pull the table
      * @return the relevant HTML table as a jSoup Element
      */
-    private static Element getTable(final Document theDoc) {
+    private static Element getRelevantTable(final Document theDoc) {
         return Objects.requireNonNull(theDoc)
                 .getElementsByTag(TAG_TABLE).first()
                 .getElementsByTag(TAG_TABLE_BODY).first();
