@@ -15,7 +15,7 @@ import java.util.*;
  * work as expected, please see archive.org's cache of the Q4 FY 2018 report to ensure that the formatting has not
  * dramatically changed.
  *
- * @version 15 January 2019
+ * @version 16 January 2019
  * @author NeighbargerJ
  */
 public final class NoFearScraper {
