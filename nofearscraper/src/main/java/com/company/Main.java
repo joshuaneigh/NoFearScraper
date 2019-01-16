@@ -11,6 +11,6 @@ public class Main {
     public static void main(final String[] theArgs) {
         final Map<String, String> tables = NoFearScraper.scrapeSubTables(URL);
         System.out.println(tables.keySet());
-        System.out.println(tables.get(tables.keySet().toArray()[5]));
+        System.out.println(tables.get(tables.keySet().toArray()[9]));
     }
 }

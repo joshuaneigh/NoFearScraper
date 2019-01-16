@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.*;
 
 /**
- * Potentially flexible, but designed and tailored to scrape the DIA's NoFEAR web page. There are some formatting
+ * Potentially flexible, but designed and tailored to scrape the DIA NoFEAR web page. There are some formatting
  * inconsistencies which prompt further use cases, but are decoupled to the best of my ability. If the utility does not
  * work as expected, please see archive.org's cache of the Q4 FY 2018 report to ensure that the formatting has not
  * dramatically changed.
@@ -20,8 +20,14 @@ import java.util.*;
  */
 public final class NoFearScraper {
 
-    /** Arbitraty name of the key which corresponds to the CSV format of the data headers */
+    /** Arbitrary name of the key which corresponds to the CSV format of the data headers */
     private static final String KEY_COLUMNS_NAMES;
+    /** Name of Table V as printed in the Q4 FY 2018 DIA No-FEAR report */
+    private static final String TABLE_V_NAME;
+    /** Name of Table VII as printed in the Q4 FY 2018 DIA No-FEAR report */
+    private static final String TABLE_VII_NAME;
+    /** Name of Table VIII as printed in the Q4 FY 2018 DIA No-FEAR report */
+    private static final String TABLE_VIII_NAME;
     /** The String for the HTML table tag */
     private static final String TAG_TABLE;
     /** The String for the HTML table body tag */
@@ -35,6 +41,9 @@ public final class NoFearScraper {
 
     static {
         KEY_COLUMNS_NAMES = "COLUMN_NAMES";
+        TABLE_V_NAME = "V. Complaint Investigations";
+        TABLE_VII_NAME = "VII.  Complaints Withdrawn by Complainants:";
+        TABLE_VIII_NAME = "VIII. Findings of Discrimination:";
         TAG_TABLE = "table";
         TAG_TABLE_BODY = "tbody";
         TAG_TABLE_DATA = "td";
@@ -108,29 +117,92 @@ public final class NoFearScraper {
 
         /* Iterates through first row to find names of columns. Skips the first cell. */
         String tableName = firstRowData.remove(0).text();
-        for (final Element columnName : firstRowData) columnNames.append('\"')
-                .append(columnName.text().replace(TAB_CHAR,' ').trim()).append('\"').append(',');
+        for (final Element columnName : firstRowData)
+            columnNames.append('\"').append(thisTrim(columnName.text())).append('\"').append(',');
         subTables.put(KEY_COLUMNS_NAMES, columnNames.toString());
 
+        /* The main loop within this method. Processes all other data. */
         StringBuilder tableCsv = new StringBuilder();
         boolean newTableFlag = false;
         for (final Element row : rows) {
-            if (row.getElementsByTag(TAG_TABLE_DATA).text().replace(TAB_CHAR, ' ').trim().equals("")) {
-                newTableFlag = true;  /* If this row is empty, set flag to enter alt logic on next row */
-            } else if (newTableFlag) {
+            if (isRowEmpty(row)) {
+                newTableFlag = true;
+            } else if (newTableFlag || isHotFixTableV(row)) {
                 subTables.put(tableName, tableCsv.toString());
                 tableCsv = new StringBuilder().append(columnNames.toString());
-                tableName = row.getElementsByTag(TAG_TABLE_DATA).first().text()
-                        .replace(TAB_CHAR, ' ').trim();
+                tableName = thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text());
                 newTableFlag = false;
+                if (isHotFixTableVII(row) || isHotFixTableVIII(row))
+                    tableCsv.append('\n');
+                    for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
+                        tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
             } else {
-                for (final Element data : row.getElementsByTag(TAG_TABLE_DATA)) tableCsv.append('\"')
-                        .append(data.text().replace(TAB_CHAR, ' ').trim()).append('\"').append(',');
+                for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
+                    tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
             }
             tableCsv.append('\n');
         }
         subTables.put(tableName, tableCsv.toString());
         return subTables;
+    }
+
+    /**
+     * Trims and returns all white space from the passed String on its left and right sides. Intended to keep code
+     * cleaner throughout this class, as this method is more verbose than String.trim(), as it also removes the HTML
+     * TAB_CHAR, as defined in the static fields of this class.
+     *
+     * @param text the text to trim as a String
+     * @return the trimmed text as a String
+     */
+    private static String thisTrim(final String text) {
+        return text.replace(TAB_CHAR, ' ').trim();
+    }
+
+    /**
+     * Determines if the passed row is empty (contains no data or headers). Pulled into dedicated method to keep code
+     * within main loop clean.
+     *
+     * @param row the row of which to interpret as a jSoup Element
+     * @return boolean if the row is empty
+     */
+    private static boolean isRowEmpty(Element row) {
+        return row.getElementsByTag(TAG_TABLE_DATA).text().replace(TAB_CHAR, ' ').trim().equals("");
+    }
+
+    /**
+     * Determines if the passed row is the start of Table V. Enters alternate logic within the master loop to handle
+     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
+     * report, and with nearly every report found through archive.org's WayBackMachine.
+     *
+     * @param row the row of which to interpret as a jSoup Element
+     * @return boolean if the row is the start of Table V.
+     */
+    private static boolean isHotFixTableV(final Element row) {
+        return row.text().startsWith(TABLE_V_NAME);
+    }
+
+    /**
+     * Determines if the passed row is the start of Table VII. Enters alternate logic within the master loop to handle
+     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
+     * report, and with nearly every report found through archive.org's WayBackMachine.
+     *
+     * @param row the row of which to interpret as a jSoup Element
+     * @return boolean if the row is the start of Table VII.
+     */
+    private static boolean isHotFixTableVII(final Element row) {
+        return row.text().startsWith(TABLE_VII_NAME);
+    }
+
+    /**
+     * Determines if the passed row is the start of Table VIII. Enters alternate logic within the master loop to handle
+     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
+     * report, and with nearly every report found through archive.org's WayBackMachine.
+     *
+     * @param row the row of which to interpret as a jSoup Element
+     * @return boolean if the row is the start of Table VIII.
+     */
+    private static boolean isHotFixTableVIII(final Element row) {
+        return row.text().startsWith(TABLE_VIII_NAME);
     }
 
     /**
