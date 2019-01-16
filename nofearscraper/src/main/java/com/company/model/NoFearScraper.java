@@ -133,6 +133,7 @@ public final class NoFearScraper {
                 tableName = thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text());
                 newTableFlag = false;
                 if (isHotFixTableVII(row) || isHotFixTableVIII(row))
+                    if (isHotFixTableVII(row)) tableCsv.append('\n');
                     tableCsv.append('\n');
                     for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
                         tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
