@@ -1,4 +1,4 @@
-package com.company.model;
+package main.java.model;
 
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;

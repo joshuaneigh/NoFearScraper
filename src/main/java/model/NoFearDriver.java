@@ -1,4 +1,4 @@
-package com.company.model;
+package main.java.model;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
