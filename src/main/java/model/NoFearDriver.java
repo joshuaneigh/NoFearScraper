@@ -17,7 +17,9 @@ import java.util.Map;
  */
 public class NoFearDriver {
 
+    /** A String of characters, all of which are illegal in a filename */
     private static final String CHARACTERS_ILLEGAL;
+    /** A String of characters, all of which are to replace the original filename */
     private static final String CHARACTERS_REPLACE_WITH;
     /** The CSV extension declared statically */
     private static final String EXTENSION_CSV;
