@@ -22,11 +22,6 @@
             <artifactId>jsoup</artifactId>
             <version>1.10.2</version>
         </dependency>
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-lambda-java-core</artifactId>
-            <version>1.1.0</version>
-        </dependency>
     </dependencies>
 
     <groupId>com.company.nofearscraper</groupId>
