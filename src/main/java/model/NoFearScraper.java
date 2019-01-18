@@ -1,47 +1,44 @@
-package main.java.model;
+package model;
 
+import com.opencsv.CSVWriter;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import util.RomanNumeralUtil;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.FileSystemException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
-/**
- * Potentially flexible, but designed and tailored to scrape the DIA NoFEAR web page. There are some formatting
- * inconsistencies which prompt further use cases, but are decoupled to the best of my ability. If the utility does not
- * work as expected, please see archive.org's cache of the Q4 FY 2018 report to ensure that the formatting has not
- * dramatically changed.
- *
- * @version 16 January 2019
- * @author NeighbargerJ
- */
-@SuppressWarnings("SameParameterValue")
 public final class NoFearScraper {
 
-    /** Name of Table V as printed in the Q4 FY 2018 DIA No-FEAR report */
-    private static final String TABLE_V_NAME;
-    /** Name of Table VII as printed in the Q4 FY 2018 DIA No-FEAR report */
-    private static final String TABLE_VII_NAME;
-    /** Name of Table VIII as printed in the Q4 FY 2018 DIA No-FEAR report */
-    private static final String TABLE_VIII_NAME;
-    /** The String for the HTML table tag */
+    private static final String EXTENSION_CSV;
+    private static final String EXTENSION_HTML;
+    private static final String KEY_HTML;
+    private static final String KEY_LOOKUP_DESC;
+    private static final String KEY_LOOKUP_REPORT;
+    private static final String KEY_REPORT;
     private static final String TAG_TABLE;
-    /** The String for the HTML table body tag */
     private static final String TAG_TABLE_BODY;
-    /** The String for the HTML table data tag */
     private static final String TAG_TABLE_DATA;
-    /** The String for the HTML table row tag */
     private static final String TAG_TABLE_ROW;
-    /** The literal for the HTML "&nbsp;" character. Defined statically to prevent accidental mis-typing. */
     private static final char TAB_CHAR;
 
     static {
-        TABLE_V_NAME = "V.";
-        TABLE_VII_NAME = "VII.";
-        TABLE_VIII_NAME = "VIII.";
+        EXTENSION_CSV = ".csv";
+        EXTENSION_HTML = ".html";
+        KEY_HTML = "html-source";
+        KEY_LOOKUP_DESC = "desc-lookup";
+        KEY_LOOKUP_REPORT = "report-lookup";
+        KEY_REPORT = "report";
         TAG_TABLE = "table";
         TAG_TABLE_BODY = "tbody";
         TAG_TABLE_DATA = "td";
@@ -54,181 +51,109 @@ public final class NoFearScraper {
      */
     private NoFearScraper() {}
 
-    /**
-     * Deprecated starting 15 January 2019. Scrapes the entirety of the HTML table into a single CSV. Does not consider
-     * any sub-tables or any context of what the data means. Intended as a proof-of-concept, not as a usable solution.
-     *
-     * @param theUrl the URL from which to read the HTML data
-     * @return the CSV as a String
-     */
-    @Deprecated
-    public static String scrape(final String theUrl) {
-        final Document doc = getWebPage(theUrl);
-        final Element table = getRelevantTable(doc);
-        return processTable(table);
-    }
-
-    /**
-     * Dynamically scrapes the No-FEAR data from the DIA web page. Does not consider improper formatting, with some
-     * exceptions, including the lack of a null line preceding table 5 and the data not leaving space for headers in
-     * tables 7 and 8. See the archived Q4 FY 2018 report for a visual explanation.
-     *
-     * @param theUrl the URL from which to read the HTML data
-     * @param theHtmlKey the key which the HTML source data will be put to for use by the Driver
-     * @return a Map with the table name as the Key (i.e.: "III. Issues of Complaints Filed:") and the CSV of that
-     *      sub-table in a String. The table cells are wrapped in \" characters and are delimited using \' characters.
-     *      The first cell is null in each table, followed by the header of each column. The data follows normally.
-     */
-    static Map<String, String> scrapeSubTables(final String theUrl, final String theHtmlKey) {
+    public static void scrape(final String theUrl, final String theArchivePath, final String theProcessedPath) {
         final Document doc = Objects.requireNonNull(getWebPage(theUrl));
         final Element table = getRelevantTable(doc);
-        final Map<String, String> subTableMap = processSubTables(table);
-        subTableMap.put(theHtmlKey, doc.toString());
-        return subTableMap;
+        process(table, theProcessedPath);
+        writeStringToFile(theArchivePath + KEY_HTML + EXTENSION_HTML, doc.toString());
     }
 
-    /**
-     * Handles the processing of the table into a CSV file. No consideration of empty rows or sub-tables exists.
-     *
-     * @param theTable the jSoup table of which to parse
-     * @return a CSV version of the table as a String
-     */
-    private static String processTable(final Element theTable) {
-        final StringBuilder csv = new StringBuilder();
+    private static void process(final Element theTable, final String outputPath) {
         final Elements rows = theTable.getElementsByTag(TAG_TABLE_ROW);
-        for (final Element row : rows) {
-            for (final Element cellData : row.getElementsByTag(TAG_TABLE_DATA)) csv.append('"')
-                    .append(thisTrim(cellData.text())).append('"').append(',');
-            csv.append('\n');
+        final List<String[]> dataList = new ArrayList<>();
+        final List<String> reportList = new ArrayList<>();
+        final List<String> descList = new ArrayList<>();
+        final List<String> headers = new ArrayList<>();
+
+        for (int i = 0; i < rows.first().getElementsByTag(TAG_TABLE_DATA).size(); i++) {
+            if (i > 0) headers.add(rows.first().getElementsByTag(TAG_TABLE_DATA).get(i).text());
         }
-        return csv.toString();
-    }
 
-    /**
-     * Handles the processing of the table into a CSV file. Takes sub-tables into consideration and implements some
-     * controls for inconsistent formatting problems commonly observed through the current No-FEAR report as of code
-     * production and as observed through archive.org's WayBackMachine. May not work on other internet networks aside
-     * from the World Wide Web, and may break for future reports of the No-FEAR data.
-     *
-     * @param theTable the jSoup table of which to parse
-     * @return a Map with the table name as the Key (i.e.: "III. Issues of Complaints Filed:") and the CSV of that
-     *      sub-table in a String. The table cells are wrapped in \" characters and are delimited using \' characters.
-     *      The first cell is null in each table, followed by the header of each column. The data follows normally.
-     */
-    private static Map<String, String> processSubTables(final Element theTable) {
-        final Map<String, String> subTables = new HashMap<>();
-        final StringBuilder columnNames = new StringBuilder().append("\"\",");
-        final Elements rows = theTable.getElementsByTag(TAG_TABLE_ROW);
-        final Elements firstRowData = rows.first().getElementsByTag(TAG_TABLE_DATA);
-
-        /* Iterates through first row to find names of columns. Skips the first cell. */
-        String tableName = firstRowData.remove(0).text();
-        for (final Element columnName : firstRowData)
-            columnNames.append('\"').append(thisTrim(columnName.text())).append('\"').append(',');
-
-        /* The main loop within this method. Processes all other data. */
-        StringBuilder tableCsv = new StringBuilder();
-        boolean newTableFlag = false;
-        boolean firstLineOfFileFlag = true;
+        int reportNumber = 1;
+        int descriptionNumber = 1;
         for (final Element row : rows) {
-            if (firstLineOfFileFlag) firstLineOfFileFlag = false;
-            else if (isRowEmpty(row)) newTableFlag = true;
-            else if (newTableFlag || isHotFixTableV(row)) {
-                subTables.put(tableName, tableCsv.toString());
-                tableCsv = new StringBuilder().append(columnNames);
-                tableName = thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text());
-                newTableFlag = false;
-                if (isHotFixTableVII(row) || isHotFixTableVIII(row)) {
-                    tableCsv.append('\n');
-                    for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
-                        tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
-                }
-            } else {
-                for (final Element data : row.getElementsByTag(TAG_TABLE_DATA))
-                    tableCsv.append('\"').append(thisTrim(data.text())).append('\"').append(',');
+
+            if (thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text()).startsWith(RomanNumeralUtil.intToRoman(reportNumber + 1))) {
+                reportNumber++;
+                reportList.add(row.getElementsByTag(TAG_TABLE_DATA).first().text());
+            } else if (!thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text()).isEmpty()) {
+                descriptionNumber++;
+                descList.add(row.getElementsByTag(TAG_TABLE_DATA).first().text());
             }
-            tableCsv.append('\n');
+            for (int i = 0; i < row.getElementsByTag(TAG_TABLE_DATA).size(); i++) {
+                if (i > 0) { /* The first column never holds data to be inserted into this table. */
+                    final Element cell = row.getElementsByTag(TAG_TABLE_DATA).get(i);
+                    if (!thisTrim(cell.text()).isEmpty()) {
+                        final List<String> rowData = new ArrayList<>();
+                        if (isDate(cell.text())) break;
+                        rowData.add(String.valueOf(reportNumber));
+                        rowData.add(String.valueOf(descriptionNumber));
+                        rowData.add(getYear(headers.get(i - 1)));
+                        rowData.add(getQuarter(headers.get(i - 1)));
+                        rowData.add(thisTrim(cell.text()));
+                        dataList.add(rowData.toArray(new String[0]));
+                    }
+                }
+            }
         }
-        subTables.put(tableName, tableCsv.toString());
-        return subTables;
+
+        try {
+            writeListArraysToCsv(dataList, outputPath.concat(KEY_REPORT));
+            writeListToCsv(reportList, outputPath.concat(KEY_LOOKUP_REPORT));
+            writeListToCsv(descList, outputPath.concat(KEY_LOOKUP_DESC));
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * Trims and returns all white space from the passed String on its left and right sides. Intended to keep code
-     * cleaner throughout this class, as this method is more verbose than String.trim(), as it also removes the HTML
-     * TAB_CHAR, as defined in the static fields of this class.
-     *
-     * @param text the text to trim as a String
-     * @return the trimmed text as a String
-     */
+    private static boolean isDate(final String text) {
+        try {
+            final int a = Integer.parseInt(thisTrim(text));
+            return a >= 2000;
+        } catch (final NumberFormatException e) {
+            return true;
+        }
+    }
+
+    private static void writeStringToFile(final String theFilePath, final String theData) {
+        final Path path = Paths.get(theFilePath);
+        try (final BufferedWriter writer = Files.newBufferedWriter(path)) {
+            writer.write(theData);
+        } catch (final FileSystemException e) {
+            System.err.println(e.getFile() + e.getMessage());
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void writeListArraysToCsv(final List<String[]> theList, final String theFilePath) throws IOException {
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(theFilePath.concat(EXTENSION_CSV))));
+        for (final String[] entry : theList) writer.writeNext(entry);
+        writer.close();
+    }
+
+    private static void writeListToCsv(final List<?> theList, final String theFilePath) throws IOException {
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(theFilePath.concat(EXTENSION_CSV))));
+        final List<String> row = new ArrayList<>();
+        for (int i = 0; i < theList.size(); i++) {
+            row.add(Integer.toString(i));
+            row.add(theList.get(i).toString());
+            writer.writeNext(row.toArray(new String[0]));
+            row.clear();
+        }
+        writer.close();
+    }
+
     private static String thisTrim(final String text) {
         return text.replace(TAB_CHAR, ' ').trim();
     }
 
-    /**
-     * Determines if the passed row is empty (contains no data or headers). Pulled into dedicated method to keep code
-     * within main loop clean.
-     *
-     * @param row the row of which to interpret as a jSoup Element
-     * @return boolean if the row is empty
-     */
-    private static boolean isRowEmpty(Element row) {
-        return row.getElementsByTag(TAG_TABLE_DATA).text().replace(TAB_CHAR, ' ').trim().equals("");
-    }
-
-    /**
-     * Determines if the passed row is the start of Table V. Enters alternate logic within the master loop to handle
-     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
-     * report, and with nearly every report found through archive.org's WayBackMachine.
-     *
-     * @param row the row of which to interpret as a jSoup Element
-     * @return boolean if the row is the start of Table V.
-     */
-    private static boolean isHotFixTableV(final Element row) {
-        return thisTrim(row.text()).startsWith(TABLE_V_NAME);
-    }
-
-    /**
-     * Determines if the passed row is the start of Table VII. Enters alternate logic within the master loop to handle
-     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
-     * report, and with nearly every report found through archive.org's WayBackMachine.
-     *
-     * @param row the row of which to interpret as a jSoup Element
-     * @return boolean if the row is the start of Table VII.
-     */
-    private static boolean isHotFixTableVII(final Element row) {
-        return thisTrim(row.text()).startsWith(TABLE_VII_NAME);
-    }
-
-    /**
-     * Determines if the passed row is the start of Table VIII. Enters alternate logic within the master loop to handle
-     * inconsistent formatting in the No-FEAR web page. May break on future No-FEAR reports. Works as of Q4 FY 2018
-     * report, and with nearly every report found through archive.org's WayBackMachine.
-     *
-     * @param row the row of which to interpret as a jSoup Element
-     * @return boolean if the row is the start of Table VIII.
-     */
-    private static boolean isHotFixTableVIII(final Element row) {
-        return thisTrim(row.text()).startsWith(TABLE_VIII_NAME);
-    }
-
-    /**
-     * Gets and returns the relevant table from the DIA No-FEAR HTML scrape.
-     *
-     * @param theDoc the jSoup Document from which to pull the table
-     * @return the relevant HTML table as a jSoup Element
-     */
     private static Element getRelevantTable(final Document theDoc) {
         return Objects.requireNonNull(theDoc)
                 .getElementsByTag(TAG_TABLE).first()
                 .getElementsByTag(TAG_TABLE_BODY).first();
     }
 
-    /**
-     * Queries web page for full HTML data and handles potential exceptions.
-     *
-     * @return the jSoup Document containing the HTML data
-     */
     private static Document getWebPage(final String theUrl) {
         try {
             return Jsoup.connect(theUrl).get();
@@ -238,6 +163,27 @@ public final class NoFearScraper {
         } catch (final IOException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    private static String getQuarter(final String theText) {
+        try {
+            Integer.parseInt(thisTrim(theText));
+            return "";
+        } catch (final NumberFormatException e) {
+            if (Character.isDigit(thisTrim(theText).charAt(0)))
+                return Character.toString(thisTrim(theText).charAt(0));
+            else
+                return "";
+        }
+    }
+
+    private static String getYear(final String theText) {
+        try {
+            final int i = Integer.parseInt(thisTrim(theText));
+            return String.valueOf(i);
+        } catch (final NumberFormatException e) {
+            return thisTrim(theText).substring(thisTrim(theText).length() - 4);
         }
     }
 }

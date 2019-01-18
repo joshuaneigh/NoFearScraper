@@ -1,6 +1,4 @@
-package main.java;
-
-import main.java.model.NoFearDriver;
+import model.NoFearScraper;
 
 /**
  * Launches the NoFearDriver.
@@ -10,6 +8,8 @@ import main.java.model.NoFearDriver;
  */
 public class Main {
 
+    private static final String URL = "http://www.dia.mil/No-FEAR/";
+
     /**
      * The main method
      *
@@ -17,6 +17,6 @@ public class Main {
      *                argument is the path to the processed folder.
      */
     public static void main(final String[] theArgs) {
-        NoFearDriver.update(theArgs[0], theArgs[1]);
+        NoFearScraper.scrape(URL, theArgs[0], theArgs[1]);
     }
 }
