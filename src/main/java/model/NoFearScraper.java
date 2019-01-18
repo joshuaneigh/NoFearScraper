@@ -20,30 +20,28 @@ import java.util.*;
 
 public final class NoFearScraper {
 
-    private static final String EXTENSION_CSV;
-    private static final String EXTENSION_HTML;
-    private static final String KEY_HTML;
-    private static final String KEY_LOOKUP_DESC;
-    private static final String KEY_LOOKUP_REPORT;
-    private static final String KEY_REPORT;
+    private static final String CHARACTERS_ILLEGAL;
+    private static final String CHARACTERS_REPLACE_WITH;
+    private static final String FILENAME_HTML;
+    private static final String FILENAME_LOOKUP_DESC;
+    private static final String FILENAME_LOOKUP_REPORT;
+    private static final String FILENAME_REPORT;
     private static final String TAG_TABLE;
     private static final String TAG_TABLE_BODY;
     private static final String TAG_TABLE_DATA;
     private static final String TAG_TABLE_ROW;
-    private static final char TAB_CHAR;
 
     static {
-        EXTENSION_CSV = ".csv";
-        EXTENSION_HTML = ".html";
-        KEY_HTML = "html-source";
-        KEY_LOOKUP_DESC = "desc-lookup";
-        KEY_LOOKUP_REPORT = "report-lookup";
-        KEY_REPORT = "report";
+        CHARACTERS_ILLEGAL = "[\\\\/:*?\"<>|\u00a0]";
+        CHARACTERS_REPLACE_WITH = "";
+        FILENAME_HTML = "html-source.html";
+        FILENAME_LOOKUP_DESC = "desc-lookup.csv";
+        FILENAME_LOOKUP_REPORT = "report-lookup.csv";
+        FILENAME_REPORT = "report.csv";
         TAG_TABLE = "table";
         TAG_TABLE_BODY = "tbody";
         TAG_TABLE_DATA = "td";
         TAG_TABLE_ROW = "tr";
-        TAB_CHAR = '\u00a0';
     }
 
     /**
@@ -55,7 +53,7 @@ public final class NoFearScraper {
         final Document doc = Objects.requireNonNull(getWebPage(theUrl));
         final Element table = getRelevantTable(doc);
         process(table, theProcessedPath);
-        writeStringToFile(theArchivePath + KEY_HTML + EXTENSION_HTML, doc.toString());
+        writeStringToFile(theArchivePath + FILENAME_HTML, doc.toString());
     }
 
     private static void process(final Element theTable, final String outputPath) {
@@ -94,9 +92,9 @@ public final class NoFearScraper {
         }
 
         try {
-            writeListArraysToCsv(dataList, outputPath.concat(KEY_REPORT));
-            writeListToCsv(reportList, outputPath.concat(KEY_LOOKUP_REPORT));
-            writeListToCsv(descList, outputPath.concat(KEY_LOOKUP_DESC));
+            writeListArraysToCsv(dataList, outputPath.concat(FILENAME_REPORT));
+            writeListToCsv(reportList, outputPath.concat(FILENAME_LOOKUP_REPORT));
+            writeListToCsv(descList, outputPath.concat(FILENAME_LOOKUP_DESC));
         } catch (final IOException e) {
             e.printStackTrace();
         }
@@ -123,13 +121,13 @@ public final class NoFearScraper {
     }
 
     private static void writeListArraysToCsv(final List<String[]> theList, final String thePath) throws IOException {
-        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath.concat(EXTENSION_CSV))));
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath)));
         for (final String[] entry : theList) writer.writeNext(entry);
         writer.close();
     }
 
     private static void writeListToCsv(final List<?> theList, final String thePath) throws IOException {
-        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath.concat(EXTENSION_CSV))));
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath)));
         final List<String> row = new ArrayList<>();
         for (int i = 0; i < theList.size(); i++) {
             row.add(Integer.toString(i));
@@ -141,7 +139,7 @@ public final class NoFearScraper {
     }
 
     private static String thisTrim(final String text) {
-        return text.replace(TAB_CHAR, ' ').trim();
+        return text.replaceAll(CHARACTERS_ILLEGAL, CHARACTERS_REPLACE_WITH).trim();
     }
 
     private static Element getRelevantTable(final Document theDoc) {
@@ -165,12 +163,12 @@ public final class NoFearScraper {
     private static String getQuarter(final String theText) {
         try {
             Integer.parseInt(thisTrim(theText));
-            return "";
+            return CHARACTERS_REPLACE_WITH;
         } catch (final NumberFormatException e) {
             if (Character.isDigit(thisTrim(theText).charAt(0)))
                 return Character.toString(thisTrim(theText).charAt(0));
             else
-                return "";
+                return CHARACTERS_REPLACE_WITH;
         }
     }
 
