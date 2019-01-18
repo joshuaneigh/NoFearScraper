@@ -9,12 +9,20 @@ import java.util.regex.Pattern;
  * Utility class to convert numbers to or from a Roman numeral.
  *
  * @author NeighbargerJ
- * @version 17 January 2019
+ * @version 18 January 2019
  */
 public final class RomanNumeralUtil {
 
+    /** Pattern of Roman numerals in decreasing order, separated by the '|' character */
     private static String PATTERN;
+    /** REGEX for use with Pattern to confirm string is a Roman */
     private static String REGEX;
+    /** Array of all Roman numeral Strings */
+    private static String[] ROMAN_NUMERALS;
+
+    /**
+     * All ROMAN_N declarations are self-explanatory
+     */
     private static String ROMAN_1;
     private static String ROMAN_4;
     private static String ROMAN_5;
@@ -28,7 +36,6 @@ public final class RomanNumeralUtil {
     private static String ROMAN_500;
     private static String ROMAN_900;
     private static String ROMAN_1000;
-    private static String[] ROMAN_NUMERALS;
 
     static {
         PATTERN = "M|CM|D|CD|C|XC|L|XL|X|IX|V|IV|I";
@@ -65,18 +72,12 @@ public final class RomanNumeralUtil {
         if (theDecimal <= 0)
             throw new IllegalArgumentException("Integer must be positive and non-zero!");
         return String.join("", Collections.nCopies(theDecimal, ROMAN_1))
-                .replace("IIIII", ROMAN_5)
-                .replace("IIII", ROMAN_4)
-                .replace("VV", ROMAN_10)
-                .replace("VIV", ROMAN_9)
-                .replace("XXXXX", ROMAN_50)
-                .replace("XXXX", ROMAN_40)
-                .replace("LL", ROMAN_100)
-                .replace("LXL", ROMAN_90)
-                .replace("CCCCC", ROMAN_500)
-                .replace("CCCC", ROMAN_400)
-                .replace("DD", ROMAN_1000)
-                .replace("DCD", ROMAN_900);
+                .replace("IIIII", ROMAN_5).replace("IIII", ROMAN_4)
+                .replace("VV", ROMAN_10).replace("VIV", ROMAN_9)
+                .replace("XXXXX", ROMAN_50).replace("XXXX", ROMAN_40)
+                .replace("LL", ROMAN_100).replace("LXL", ROMAN_90)
+                .replace("CCCCC", ROMAN_500).replace("CCCC", ROMAN_400)
+                .replace("DD", ROMAN_1000).replace("DCD", ROMAN_900);
     }
 
     /**

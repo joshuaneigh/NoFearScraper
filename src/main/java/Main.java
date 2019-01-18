@@ -4,7 +4,7 @@ import model.NoFearScraper;
  * Launches the NoFearDriver.
  *
  * @author NeighbargerJ
- * @version 16 January 2019
+ * @version 18 January 2019
  */
 public class Main {
 
