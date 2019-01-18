@@ -73,7 +73,8 @@ public final class NoFearScraper {
         int descriptionNumber = 1;
         for (final Element row : rows) {
 
-            if (thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text()).startsWith(RomanNumeralUtil.intToRoman(reportNumber + 1))) {
+            if (thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text())
+                    .startsWith(RomanNumeralUtil.intToRoman(reportNumber + 1))) {
                 reportNumber++;
                 reportList.add(row.getElementsByTag(TAG_TABLE_DATA).first().text());
             } else if (!thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text()).isEmpty()) {
@@ -84,14 +85,9 @@ public final class NoFearScraper {
                 if (i > 0) { /* The first column never holds data to be inserted into this table. */
                     final Element cell = row.getElementsByTag(TAG_TABLE_DATA).get(i);
                     if (!thisTrim(cell.text()).isEmpty()) {
-                        final List<String> rowData = new ArrayList<>();
                         if (isDate(cell.text())) break;
-                        rowData.add(String.valueOf(reportNumber));
-                        rowData.add(String.valueOf(descriptionNumber));
-                        rowData.add(getYear(headers.get(i - 1)));
-                        rowData.add(getQuarter(headers.get(i - 1)));
-                        rowData.add(thisTrim(cell.text()));
-                        dataList.add(rowData.toArray(new String[0]));
+                        dataList.add(new String[]{String.valueOf(reportNumber), String.valueOf(descriptionNumber),
+                                getYear(headers.get(i - 1)), getQuarter(headers.get(i - 1)), thisTrim(cell.text())});
                     }
                 }
             }
@@ -126,14 +122,14 @@ public final class NoFearScraper {
         }
     }
 
-    private static void writeListArraysToCsv(final List<String[]> theList, final String theFilePath) throws IOException {
-        final CSVWriter writer = new CSVWriter(new FileWriter(new File(theFilePath.concat(EXTENSION_CSV))));
+    private static void writeListArraysToCsv(final List<String[]> theList, final String thePath) throws IOException {
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath.concat(EXTENSION_CSV))));
         for (final String[] entry : theList) writer.writeNext(entry);
         writer.close();
     }
 
-    private static void writeListToCsv(final List<?> theList, final String theFilePath) throws IOException {
-        final CSVWriter writer = new CSVWriter(new FileWriter(new File(theFilePath.concat(EXTENSION_CSV))));
+    private static void writeListToCsv(final List<?> theList, final String thePath) throws IOException {
+        final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath.concat(EXTENSION_CSV))));
         final List<String> row = new ArrayList<>();
         for (int i = 0; i < theList.size(); i++) {
             row.add(Integer.toString(i));
