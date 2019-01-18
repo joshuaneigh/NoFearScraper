@@ -32,7 +32,7 @@ public final class NoFearScraper {
     private static final String TAG_TABLE_ROW;
 
     static {
-        CHARACTERS_ILLEGAL = "[\\\\/:*?\"<>|\u00a0]";
+        CHARACTERS_ILLEGAL = "[^\\\\u0000-\\\\uFFFF]";
         CHARACTERS_REPLACE_WITH = "";
         FILENAME_HTML = "html-source.html";
         FILENAME_LOOKUP_DESC = "desc-lookup.csv";
@@ -67,8 +67,8 @@ public final class NoFearScraper {
             if (i > 0) headers.add(rows.first().getElementsByTag(TAG_TABLE_DATA).get(i).text());
         }
 
-        int reportNumber = 1;
-        int descriptionNumber = 1;
+        int reportNumber = 0;
+        int descriptionNumber = 0;
         for (final Element row : rows) {
 
             if (thisTrim(row.getElementsByTag(TAG_TABLE_DATA).first().text())
@@ -130,7 +130,7 @@ public final class NoFearScraper {
         final CSVWriter writer = new CSVWriter(new FileWriter(new File(thePath)));
         final List<String> row = new ArrayList<>();
         for (int i = 0; i < theList.size(); i++) {
-            row.add(Integer.toString(i));
+            row.add(Integer.toString(i+1));
             row.add(theList.get(i).toString());
             writer.writeNext(row.toArray(new String[0]));
             row.clear();
