@@ -1,0 +1,6 @@
+build:
+clean compile assembly:single
+
+run:
+java-jar /path/to/jar/ archive/ processed/
+Passed folder paths are relative to the jar location and must already exits. Code does not check for created folders, as the AWS pipeline already creates them.
